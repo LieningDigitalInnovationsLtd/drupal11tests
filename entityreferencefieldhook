@@ -1,8 +1,10 @@
+<?php
+
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
 
 /**
- * Implements hook_form_BASE_FORM_ID_alter().
+ * Implements hook_form_node_form_alter().
  */
 function mymodule_form_node_form_alter(array &$form, FormStateInterface $form_state, $form_id): void {
   $node = $form_state->getFormObject()->getEntity();
@@ -19,16 +21,46 @@ function mymodule_form_node_form_alter(array &$form, FormStateInterface $form_st
       continue;
     }
 
-    if (!$node->hasField($field_name) || !isset($form[$field_name])) {
+    if (!isset($form[$field_name]['widget'])) {
       continue;
     }
 
-    $paragraph_bundles = [];
+    $paragraph_types = [];
 
-    foreach ($node->get($field_name)->referencedEntities() as $paragraph) {
-      $paragraph_bundles[$paragraph->bundle()] = $paragraph->bundle();
+    foreach ($form[$field_name]['widget'] as $delta => $widget) {
+      if (!is_numeric($delta)) {
+        continue;
+      }
+
+      // Existing paragraphs.
+      if (isset($widget['#paragraph'])) {
+        $paragraph_types[] = $widget['#paragraph']->bundle();
+      }
+
+      // Newly added paragraphs through AJAX.
+      if (isset($widget['entity'])) {
+        $entity = $widget['entity'];
+
+        if ($entity->getEntityTypeId() === 'paragraph') {
+          $paragraph_types[] = $entity->bundle();
+        }
+      }
+
+      // Fallback: Paragraph type stored in widget state.
+      if (!empty($widget['top']['paragraph_type']['#value'])) {
+        $paragraph_types[] = $widget['top']['paragraph_type']['#value'];
+      }
     }
 
-    $form[$field_name]['#attributes']['data-paragraphs'] = implode(' ', $paragraph_bundles);
+    // Fallback to saved entity values if the widget is empty.
+    if (!$paragraph_types && $node->hasField($field_name)) {
+      foreach ($node->get($field_name)->referencedEntities() as $paragraph) {
+        $paragraph_types[] = $paragraph->bundle();
+      }
+    }
+
+    $paragraph_types = array_unique($paragraph_types);
+
+    $form[$field_name]['widget']['#attributes']['data-paragraphs'] = implode(' ', $paragraph_types);
   }
 }
