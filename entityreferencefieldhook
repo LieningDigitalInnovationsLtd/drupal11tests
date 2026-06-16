@@ -1,0 +1,34 @@
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter().
+ */
+function mymodule_form_node_form_alter(array &$form, FormStateInterface $form_state, $form_id): void {
+  $node = $form_state->getFormObject()->getEntity();
+
+  if (!$node instanceof NodeInterface) {
+    return;
+  }
+
+  foreach ($node->getFieldDefinitions() as $field_name => $definition) {
+    if (
+      $definition->getType() !== 'entity_reference_revisions' ||
+      $definition->getSetting('target_type') !== 'paragraph'
+    ) {
+      continue;
+    }
+
+    if (!$node->hasField($field_name) || !isset($form[$field_name])) {
+      continue;
+    }
+
+    $paragraph_bundles = [];
+
+    foreach ($node->get($field_name)->referencedEntities() as $paragraph) {
+      $paragraph_bundles[$paragraph->bundle()] = $paragraph->bundle();
+    }
+
+    $form[$field_name]['#attributes']['data-paragraphs'] = implode(' ', $paragraph_bundles);
+  }
+}
