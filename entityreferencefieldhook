@@ -1,7 +1,9 @@
 <?php
 
-use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Render\Element;
+use Drupal\Core\Render\Markup;
 use Drupal\node\NodeInterface;
+use Drupal\Core\Form\FormStateInterface;
 
 /**
  * Implements hook_form_node_form_alter().
@@ -25,42 +27,41 @@ function mymodule_form_node_form_alter(array &$form, FormStateInterface $form_st
       continue;
     }
 
-    $paragraph_types = [];
-
-    foreach ($form[$field_name]['widget'] as $delta => $widget) {
-      if (!is_numeric($delta)) {
-        continue;
-      }
-
-      // Existing paragraphs.
-      if (isset($widget['#paragraph'])) {
-        $paragraph_types[] = $widget['#paragraph']->bundle();
-      }
-
-      // Newly added paragraphs through AJAX.
-      if (isset($widget['entity'])) {
-        $entity = $widget['entity'];
-
-        if ($entity->getEntityTypeId() === 'paragraph') {
-          $paragraph_types[] = $entity->bundle();
-        }
-      }
-
-      // Fallback: Paragraph type stored in widget state.
-      if (!empty($widget['top']['paragraph_type']['#value'])) {
-        $paragraph_types[] = $widget['top']['paragraph_type']['#value'];
-      }
-    }
-
-    // Fallback to saved entity values if the widget is empty.
-    if (!$paragraph_types && $node->hasField($field_name)) {
-      foreach ($node->get($field_name)->referencedEntities() as $paragraph) {
-        $paragraph_types[] = $paragraph->bundle();
-      }
-    }
-
-    $paragraph_types = array_unique($paragraph_types);
-
-    $form[$field_name]['widget']['#attributes']['data-paragraphs'] = implode(' ', $paragraph_types);
+    $form[$field_name]['widget']['#pre_render'][] = 'mymodule_add_paragraph_data_attribute';
   }
+}
+
+/**
+ * Adds data-paragraphs attribute after Paragraphs widget is built.
+ */
+function mymodule_add_paragraph_data_attribute(array $element): array {
+  $paragraph_types = [];
+
+  foreach (Element::children($element) as $delta) {
+    $item = $element[$delta];
+
+    if (!is_array($item)) {
+      continue;
+    }
+
+    if (!empty($item['#paragraph'])) {
+      $paragraph_types[] = $item['#paragraph']->bundle();
+    }
+
+    if (!empty($item['entity'])) {
+      $entity = $item['entity'];
+
+      if ($entity->getEntityTypeId() === 'paragraph') {
+        $paragraph_types[] = $entity->bundle();
+      }
+    }
+
+    if (!empty($item['top']['paragraph_type']['#value'])) {
+      $paragraph_types[] = $item['top']['paragraph_type']['#value'];
+    }
+  }
+
+  $element['#attributes']['data-paragraphs'] = implode(' ', array_unique($paragraph_types));
+
+  return $element;
 }
