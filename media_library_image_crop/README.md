@@ -16,7 +16,7 @@ composer require drupal/image_widget_crop cweagans/composer-patches
 
 ## Cropper.js library
 
-`image_widget_crop` needs the [Cropper](https://github.com/fengyuanchen/cropper) JS library. **`cropper/cropper` is not on Packagist** — you cannot `composer require` it unless you add a custom repository entry first (see option 2 below).
+`image_widget_crop` needs the [Cropper](https://github.com/fengyuanchen/cropper) JS library. **`cropper/cropper` is not on Packagist** — you cannot `composer require` it unless you add a custom repository entry first (see option 3 below).
 
 Pick one of these options.
 
@@ -24,7 +24,7 @@ Pick one of these options.
 
 `image_widget_crop` loads Cropper from cdnjs by default when no local copy is found. **You can skip installing Cropper entirely.**
 
-After enabling modules, cropping should work without any extra steps. Optional: confirm at `/admin/config/media/crop-widget` that the library/CSS URL fields are empty (CDN fallback).
+After enabling modules, cropping should work without any extra steps. Confirm at `/admin/config/media/crop-widget` that the library/CSS URL fields are **empty** (CDN fallback).
 
 ### Option 2 — Manual install (recommended for local/offline)
 
@@ -36,9 +36,35 @@ curl -L https://github.com/fengyuanchen/cropper/archive/refs/tags/v4.0.0.tar.gz 
   | tar xz -C web/libraries/cropper --strip-components=1
 ```
 
-This creates `web/libraries/cropper/dist/cropper.min.js` and `cropper.min.css`. Clear cache:
+You should have:
+
+```
+web/libraries/cropper/dist/cropper.min.js
+web/libraries/cropper/dist/cropper.min.css
+```
+
+Verify in the browser (replace with your domain):
+
+```
+https://YOUR-SITE/libraries/cropper/dist/cropper.min.js
+```
+
+That URL must return **200**, not 404.
+
+Then point `image_widget_crop` at the local files.
+
+**Configuration → Media → Crop widget** (`/admin/config/media/crop-widget`):
+
+| Field | Value |
+|---|---|
+| Custom Cropper library | `libraries/cropper/dist/cropper.min.js` |
+| Custom Cropper CSS file | `libraries/cropper/dist/cropper.min.css` |
+
+Or with Drush:
 
 ```bash
+drush cset image_widget_crop.settings settings.library_url 'libraries/cropper/dist/cropper.min.js' -y
+drush cset image_widget_crop.settings settings.css_url 'libraries/cropper/dist/cropper.min.css' -y
 drush cr
 ```
 
@@ -70,7 +96,7 @@ drush cr
 composer require cropper/cropper:4.0.0
 ```
 
-Composer installs it to `web/libraries/cropper/` via `composer/installers`.
+Composer installs it to `web/libraries/cropper/` via `composer/installers`. Then set the Crop widget paths as in option 2.
 
 ## composer.json snippets (copy/paste)
 
@@ -84,7 +110,7 @@ Under `config.allow-plugins`:
 
 ### jQuery 4 patch for image_widget_crop
 
-Under `extra.patches` (Drupal 11 / jQuery 4 — without this, inline cropping can fail):
+Under `extra.patches` (Drupal 11 / jQuery 4 — **required**; without this, inline cropping fails with `cropper is not a function`):
 
 ```json
 "patches": {
@@ -92,6 +118,13 @@ Under `extra.patches` (Drupal 11 / jQuery 4 — without this, inline cropping ca
         "3526211: jQuery 4 isFunction polyfill for Cropper": "https://www.drupal.org/files/issues/2026-02-09/image_widget_crop-jquery-isfunction.patch"
     }
 }
+```
+
+Then run:
+
+```bash
+composer update drupal/image_widget_crop
+drush cr
 ```
 
 ### Minimal `require` entries (crop stack only)
@@ -182,3 +215,21 @@ drush cr
 1. Create crop types (Structure → Crop types).
 2. On the entity form display, set the media reference field widget to **Media Library Image Crop**.
 3. Configure **Bildstil** (image style with a manual crop effect) and **Zuschnittformate** (crop types) on the widget.
+
+## Troubleshooting: `cropper is not a function`
+
+This means Cropper.js never registered as a jQuery plugin (`$(img).cropper(...)`). Common causes:
+
+1. **Cropper JS not installed or 404** — install option 2 above and confirm `https://YOUR-SITE/libraries/cropper/dist/cropper.min.js` returns 200.
+2. **Wrong Crop widget paths** — set `library_url` and `css_url` as in option 2, or leave both empty for CDN.
+3. **Missing jQuery 4 patch** — apply the patch in `extra.patches` and run `composer update drupal/image_widget_crop`.
+
+### Browser checks
+
+On a page with the crop widget, open DevTools → **Network** and confirm:
+
+- `cropper.min.js` loads (200)
+- `jquery-isfunction-polyfill.js` loads (from `image_widget_crop`)
+- No JS error before `ImageWidgetCropType.js` runs
+
+If `cropper.min.js` is 404, the library is missing from `web/libraries/cropper/dist/`. If it loads but the error persists, the jQuery 4 patch is almost certainly missing.
