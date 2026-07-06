@@ -220,7 +220,6 @@ class MediaLibraryImageCropWidget extends MediaLibraryWidget {
       array_filter($this->getSetting('crop_types_required') ?? []),
     ));
 
-    $form_state->set('crop_context', $crop_types);
     $element['#attached']['library'][] = 'media_library_image_crop/inline_crop';
 
     $referenced_entities = $items->referencedEntities();
@@ -237,8 +236,6 @@ class MediaLibraryImageCropWidget extends MediaLibraryWidget {
       if (!$file) {
         continue;
       }
-
-      unset($element['selection'][$selection_delta]['edit_ajax_link']);
 
       if (isset($element['selection'][$selection_delta]['rendered_entity'])) {
         $element['selection'][$selection_delta]['rendered_entity']['#access'] = FALSE;
@@ -301,21 +298,6 @@ class MediaLibraryImageCropWidget extends MediaLibraryWidget {
     }
 
     return $element;
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public static function openMediaLibrary(array $form, FormStateInterface $form_state) {
-    $response = parent::openMediaLibrary($form, $form_state);
-
-    if ($crop_context = $form_state->get('crop_context')) {
-      \Drupal::service('tempstore.private')
-        ->get('contextual_image_widget_crop')
-        ->set('crop_context', $crop_context);
-    }
-
-    return $response;
   }
 
   public static function submitInlineCropValues(array &$form, FormStateInterface $form_state): void {

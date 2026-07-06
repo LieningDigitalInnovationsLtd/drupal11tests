@@ -190,8 +190,7 @@
   margin: 0;
 }
 
-.media-library-item:has(.media-library-image-crop) .media-library-item__preview,
-.media-library-item:has(.media-library-image-crop) [data-contextual-image-widget-crop-refresh] {
+.media-library-item:has(.media-library-image-crop) .media-library-item__preview {
   display: none;
 }
 
