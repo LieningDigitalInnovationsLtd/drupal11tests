@@ -14,15 +14,37 @@ composer require drupal/image_widget_crop cweagans/composer-patches
 
 **Not required:** `drupal/contextual_image_widget_crop`. This module does not use it.
 
-### Cropper.js library
+## Cropper.js library
 
-`image_widget_crop` expects Cropper at `web/libraries/cropper`. Add the custom package repository and require the library:
+`image_widget_crop` needs the [Cropper](https://github.com/fengyuanchen/cropper) JS library. **`cropper/cropper` is not on Packagist** — you cannot `composer require` it unless you add a custom repository entry first (see option 2 below).
+
+Pick one of these options.
+
+### Option 1 — CDN (easiest, no Cropper install)
+
+`image_widget_crop` loads Cropper from cdnjs by default when no local copy is found. **You can skip installing Cropper entirely.**
+
+After enabling modules, cropping should work without any extra steps. Optional: confirm at `/admin/config/media/crop-widget` that the library/CSS URL fields are empty (CDN fallback).
+
+### Option 2 — Manual install (recommended for local/offline)
+
+From the project root:
 
 ```bash
-composer require cropper/cropper:4.0.0
+mkdir -p web/libraries/cropper
+curl -L https://github.com/fengyuanchen/cropper/archive/refs/tags/v4.0.0.tar.gz \
+  | tar xz -C web/libraries/cropper --strip-components=1
 ```
 
-If `cropper/cropper` is not on Packagist in your project, add this under `repositories` in `composer.json` first:
+This creates `web/libraries/cropper/dist/cropper.min.js` and `cropper.min.css`. Clear cache:
+
+```bash
+drush cr
+```
+
+### Option 3 — Composer custom package
+
+**Step 1:** Add this to the `repositories` array in `composer.json` (must be done **before** `composer require`):
 
 ```json
 {
@@ -41,6 +63,14 @@ If `cropper/cropper` is not on Packagist in your project, add this under `reposi
     }
 }
 ```
+
+**Step 2:** Require the package:
+
+```bash
+composer require cropper/cropper:4.0.0
+```
+
+Composer installs it to `web/libraries/cropper/` via `composer/installers`.
 
 ## composer.json snippets (copy/paste)
 
@@ -66,18 +96,25 @@ Under `extra.patches` (Drupal 11 / jQuery 4 — without this, inline cropping ca
 
 ### Minimal `require` entries (crop stack only)
 
-Add alongside your existing requirements:
+Add alongside your existing requirements (Cropper optional — see options above):
 
 ```json
 "cweagans/composer-patches": "^1.7",
-"cropper/cropper": "4.0.0",
 "drupal/crop": "^2.6",
 "drupal/image_widget_crop": "^3.0"
+```
+
+If using Composer for Cropper (option 3), also add:
+
+```json
+"cropper/cropper": "4.0.0"
 ```
 
 Do **not** add `drupal/contextual_image_widget_crop` for this module.
 
 ### Example merged `composer.json` (crop-related parts only)
+
+With local Cropper via Composer (option 3):
 
 ```json
 {
@@ -125,11 +162,13 @@ Do **not** add `drupal/contextual_image_widget_crop` for this module.
 }
 ```
 
-After editing `composer.json`, run:
+After editing `composer.json`:
 
 ```bash
-composer update drupal/image_widget_crop cropper/cropper --with-dependencies
+composer update drupal/image_widget_crop --with-dependencies
 ```
+
+Add `cropper/cropper` to the update command only if you use option 3.
 
 ## Enable modules
 
