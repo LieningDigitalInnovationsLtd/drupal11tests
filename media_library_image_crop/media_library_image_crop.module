@@ -1,0 +1,74 @@
+<?php
+
+/**
+ * @file
+ * Form and theme hooks for media library image crop
+ */
+
+use Drupal\Core\Entity\ContentEntityDeleteForm;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\media_library_image_crop\Plugin\Field\FieldWidget\MediaLibraryImageCropWidget;
+
+/**
+ * Implements hook_theme()
+ */
+function media_library_image_crop_theme($existing, $type, $theme, $path): array {
+  return [
+    'media_library_image_crop_inline' => [
+      'render element' => 'element',
+    ],
+  ];
+}
+
+/**
+ * Implements hook_form_alter()
+ */
+function media_library_image_crop_form_alter(array &$form, FormStateInterface $form_state, string $form_id): void {
+  if (!empty($form['#inline_crop_submit_attached'])) {
+    return;
+  }
+
+  if (!isset($form['actions']['submit']['#submit'])) {
+    return;
+  }
+
+  $form['#inline_crop_submit_attached'] = TRUE;
+  $form['actions']['submit']['#submit'][] = [
+    MediaLibraryImageCropWidget::class,
+    'submitInlineCropValues',
+  ];
+}
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter() for media_confirm_form
+ */
+function media_library_image_crop_form_media_confirm_form_alter(array &$form, FormStateInterface $form_state): void {
+  $form_object = $form_state->getFormObject();
+  if (!$form_object instanceof ContentEntityDeleteForm) {
+    return;
+  }
+
+  \Drupal::service('media_library_image_crop.media_delete_form_alter')
+    ->alterSingleDeleteForm($form, $form_state);
+  $form['#attached']['library'][] = 'media_library_image_crop/media_delete_warning';
+}
+
+/**
+ * Implements hook_form_FORM_ID_alter() for media_delete_multiple_confirm_form
+ */
+function media_library_image_crop_form_media_delete_multiple_confirm_form_alter(array &$form, FormStateInterface $form_state): void {
+  \Drupal::service('media_library_image_crop.media_delete_form_alter')
+    ->alterBulkDeleteForm($form, $form_state);
+  $form['#attached']['library'][] = 'media_library_image_crop/media_delete_warning';
+}
+
+/**
+ * Prepares variables for media-library-image-crop-inline.html.twig
+ */
+function template_preprocess_media_library_image_crop_inline(array &$variables): void {
+  $element = $variables['element'];
+  $variables['preview'] = $element['preview'] ?? [];
+  $variables['crop_element'] = $element['crop_element'] ?? [];
+  $variables['crop_type_select'] = $element['crop_type_select'] ?? [];
+  $variables['labels'] = $element['#labels'] ?? [];
+}

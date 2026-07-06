@@ -1,0 +1,36 @@
+<div class="media-library-image-crop" data-media-library-image-crop-inline>
+
+  <div class="media-library-image-crop__preview-pane">
+    <div class="media-library-image-crop__frame">
+      <div class="media-library-image-crop__preview">
+        {{ preview }}
+      </div>
+      <div class="media-library-image-crop__toolbar">
+        <button type="button" class="button button--primary media-library-image-crop__start-crop">
+          {{ labels.crop }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="media-library-image-crop__crop-pane is-hidden">
+    <div class="media-library-image-crop__frame">
+      <div class="media-library-image-crop__crop-widget">
+        {{ crop_element }}
+      </div>
+
+      <div class="media-library-image-crop__toolbar">
+        {{ crop_type_select }}
+
+        <button type="button" class="button media-library-image-crop__reset-crop">
+          {{ labels.reset }}
+        </button>
+
+        <button type="button" class="button button--primary media-library-image-crop__apply-crop">
+          {{ labels.apply }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>

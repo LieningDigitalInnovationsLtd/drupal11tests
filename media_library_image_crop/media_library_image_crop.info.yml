@@ -1,0 +1,8 @@
+name: 'Media Library Image Crop'
+type: module
+core_version_requirement: ^11
+package: Media
+dependencies:
+  - drupal:media_library
+  - image_widget_crop:image_widget_crop
+  - contextual_image_widget_crop:contextual_image_widget_crop

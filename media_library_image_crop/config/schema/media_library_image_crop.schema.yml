@@ -1,0 +1,34 @@
+field.widget.settings.media_library_image_crop:
+  type: mapping
+  label: 'Medienbibliothek (Zuschnitt)'
+  mapping:
+    image_style:
+      type: string
+      label: 'Bildstil'
+    crop_types:
+      type: sequence
+      label: 'Zuschnittformate'
+      sequence:
+        type: string
+    crop_types_required:
+      type: sequence
+      label: 'Pflicht-Zuschnittformate'
+      sequence:
+        type: string
+    crop_preview_image_style:
+      type: string
+      label: 'Vorschaubildstil für Zuschnitt'
+    show_crop_area:
+      type: boolean
+      label: 'Zuschnittbereich immer geöffnet'
+    show_default_crop:
+      type: boolean
+      label: 'Standard-Zuschnitt anzeigen'
+    warn_multiple_usages:
+      type: boolean
+      label: 'Bei mehrfacher Verwendung warnen'
+    media_types:
+      type: sequence
+      label: 'Medientypen'
+      sequence:
+        type: string

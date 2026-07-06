@@ -1,0 +1,19 @@
+inline_crop:
+  version: 1.x
+  js:
+    js/inline-crop.js: {}
+  css:
+    theme:
+      css/inline-crop.css: {}
+  dependencies:
+    - core/drupal
+    - core/drupal.debounce
+    - core/once
+    - core/jquery
+    - image_widget_crop/cropper.integration
+
+media_delete_warning:
+  version: 1.x
+  css:
+    theme:
+      css/media-delete-warning.css: {}

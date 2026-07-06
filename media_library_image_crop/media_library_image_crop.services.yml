@@ -1,0 +1,24 @@
+services:
+  media_library_image_crop.inline_crop_saver:
+    class: Drupal\media_library_image_crop\InlineCropSaver
+    arguments: ['@image_widget_crop.manager']
+
+  media_library_image_crop.media_usage_finder:
+    class: Drupal\media_library_image_crop\MediaUsageFinder
+    arguments:
+      - '@entity_type.manager'
+      - '@entity_field.manager'
+      - '@entity_type.bundle.info'
+      - '@database'
+
+  media_library_image_crop.media_usage_warning_builder:
+    class: Drupal\media_library_image_crop\MediaUsageWarningBuilder
+
+  media_library_image_crop.media_delete_form_alter:
+    class: Drupal\media_library_image_crop\Form\MediaDeleteFormAlter
+    arguments:
+      - '@media_library_image_crop.media_usage_finder'
+      - '@media_library_image_crop.media_usage_warning_builder'
+      - '@entity_type.manager'
+      - '@tempstore.private'
+      - '@current_user'
