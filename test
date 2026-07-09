@@ -1,0 +1,52 @@
+<?php
+
+namespace Drupal\webform_normalizer\Normalizer;
+
+use Drupal\serialization\Normalizer\EntityNormalizer;
+use Drupal\webform\WebformInterface;
+
+class WebformNormalizer extends EntityNormalizer {
+
+  protected $supportedInterfaceOrClass = WebformInterface::class;
+
+  /**
+   * {@inheritdoc}
+   */
+  public function normalize($object, $format = NULL, array $context = []) {
+    $data = parent::normalize($object, $format, $context);
+
+    if ($object instanceof WebformInterface) {
+      $data = [
+        'id' => $object->id(),
+        'title' => $object->label(),
+        'description' => $object->getDescription(),
+        'status' => $object->status(),
+        'created' => $object->getCreatedTime(),
+        'changed' => $object->getChangedTime(),
+        'elements' => $this->getElements($object),
+      ];
+    }
+
+    return $data;
+  }
+
+  /**
+   * Extract webform elements.
+   */
+  protected function getElements(WebformInterface $webform) {
+    $elements = $webform->getElementsDecodedAndFlattened();
+
+    $output = [];
+
+    foreach ($elements as $key => $element) {
+      $output[$key] = [
+        'type' => $element['#type'] ?? NULL,
+        'title' => $element['#title'] ?? NULL,
+        'required' => !empty($element['#required']),
+      ];
+    }
+
+    return $output;
+  }
+
+}
