@@ -1,17 +1,37 @@
 <?php
 
-namespace Drupal\webform_normalizer\Normalizer;
+namespace Drupal\my_module\Normalizer;
 
+use Drupal\Core\Form\FormBuilderInterface;
+use Drupal\Core\Render\RendererInterface;
 use Drupal\webform\WebformInterface;
+use Drupal\webform\WebformSubmissionForm;
 use Symfony\Component\Serializer\Normalizer\NormalizerInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class WebformNormalizer implements NormalizerInterface {
 
-  /**
-   * {@inheritdoc}
-   */
+  public function __construct(
+    protected FormBuilderInterface $formBuilder,
+    protected RendererInterface $renderer,
+  ) {}
+
+  public static function create(ContainerInterface $container): static {
+    return new static(
+      $container->get('form_builder'),
+      $container->get('renderer'),
+    );
+  }
+
   public function normalize(mixed $data, ?string $format = NULL, array $context = []): array {
     assert($data instanceof WebformInterface);
+
+    $form = $this->formBuilder->getForm(
+      WebformSubmissionForm::class,
+      $data
+    );
+
+    $html = $this->renderer->renderRoot($form);
 
     return [
       'id' => $data->id(),
@@ -19,45 +39,19 @@ class WebformNormalizer implements NormalizerInterface {
       'title' => $data->label(),
       'description' => $data->getDescription(),
       'status' => $data->status(),
-      'created' => $data->getCreatedTime(),
-      'changed' => $data->getChangedTime(),
-      'elements' => $this->getElements($data),
+      'elements' => $data->getElementsDecodedAndFlattened(),
+      'html' => (string) $html,
     ];
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function supportsNormalization(mixed $data, ?string $format = NULL, array $context = []): bool {
     return $data instanceof WebformInterface;
   }
 
-  /**
-   * {@inheritdoc}
-   */
   public function getSupportedTypes(?string $format): array {
     return [
       WebformInterface::class => TRUE,
     ];
-  }
-
-  /**
-   * Extract webform elements.
-   */
-  protected function getElements(WebformInterface $webform): array {
-    $elements = $webform->getElementsDecodedAndFlattened();
-
-    $result = [];
-
-    foreach ($elements as $key => $element) {
-      $result[$key] = [
-        'type' => $element['#type'] ?? NULL,
-        'title' => $element['#title'] ?? NULL,
-        'required' => !empty($element['#required']),
-      ];
-    }
-
-    return $result;
   }
 
 }
