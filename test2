@@ -1,9 +1,9 @@
 <?php
 
 /**
- * Implements hook_webform_element_info_alter().
+ * Implements hook_webform_ui_element_types_alter().
  */
-function my_module_webform_element_info_alter(array &$definitions): void {
+function my_module_webform_ui_element_types_alter(array &$element_types): void {
   $allowed = [
     'textfield',
     'textarea',
@@ -12,12 +12,11 @@ function my_module_webform_element_info_alter(array &$definitions): void {
     'radios',
     'checkboxes',
     'checkbox',
-    'webform_actions',
   ];
 
-  foreach ($definitions as $id => $definition) {
+  foreach (array_keys($element_types) as $id) {
     if (!in_array($id, $allowed, TRUE)) {
-      unset($definitions[$id]);
+      unset($element_types[$id]);
     }
   }
 }
