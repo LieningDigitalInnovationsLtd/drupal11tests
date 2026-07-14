@@ -1,0 +1,23 @@
+<?php
+
+/**
+ * Implements hook_webform_element_info_alter().
+ */
+function my_module_webform_element_info_alter(array &$definitions): void {
+  $allowed = [
+    'textfield',
+    'textarea',
+    'email',
+    'select',
+    'radios',
+    'checkboxes',
+    'checkbox',
+    'webform_actions',
+  ];
+
+  foreach ($definitions as $id => $definition) {
+    if (!in_array($id, $allowed, TRUE)) {
+      unset($definitions[$id]);
+    }
+  }
+}
