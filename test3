@@ -1,13 +1,15 @@
-$attachments = $build['#attached']['library'] ?? [];
+$build = $webform->getSubmissionForm();
 
-$libraryDiscovery = \Drupal::service('library.discovery');
+$html = $this->renderer->renderRoot($build);
 
 $styles = [];
 
-foreach ($attachments as $library) {
+foreach ($build['#attached']['library'] ?? [] as $library) {
+
   [$extension, $name] = explode('/', $library, 2);
 
-  $definition = $libraryDiscovery->getLibraryByName($extension, $name);
+  $definition = \Drupal::service('library.discovery')
+    ->getLibraryByName($extension, $name);
 
   if (!$definition) {
     continue;
@@ -15,12 +17,14 @@ foreach ($attachments as $library) {
 
   foreach ($definition['css'] ?? [] as $group) {
     foreach ($group as $file => $options) {
-      if (str_starts_with($file, 'http://') || str_starts_with($file, 'https://')) {
+
+      if (str_starts_with($file, 'http')) {
         $styles[] = $file;
       }
       else {
-        $styles[] = file_url_transform_relative(file_create_url($file));
+        $styles[] = base_path() . $file;
       }
+
     }
   }
 }
