@@ -1,17 +1,10 @@
-$library = 'webform/webform';
-
-[$extension, $name] = explode('/', $library, 2);
-
-$definition = \Drupal::service('library.discovery')
-  ->getLibraryByName($extension, $name);
+$webform_path = \Drupal::service('extension.path.resolver')
+  ->getPath('webform');
 
 $styles = [];
 
-foreach ($definition['css'] ?? [] as $group) {
-  foreach ($group as $file => $options) {
-    $styles[] = '/' . \Drupal::service('extension.path.resolver')
-      ->getPath($extension) . '/' . $file;
-  }
+foreach (glob($webform_path . '/css/*.css') as $file) {
+  $styles[] = base_path() . $file;
 }
 
 return $styles;
