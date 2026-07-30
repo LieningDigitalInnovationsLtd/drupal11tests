@@ -1,23 +1,28 @@
+$attachments = $build['#attached']['library'] ?? [];
+
+$libraryDiscovery = \Drupal::service('library.discovery');
+
 $styles = [];
 
-if (!empty($request->query->get('styles'))) {
+foreach ($attachments as $library) {
+  [$extension, $name] = explode('/', $library, 2);
 
-  /** @var \Drupal\Core\Asset\AssetResolver $asset_resolver */
-  $asset_resolver = \Drupal::service('asset.resolver');
+  $definition = $libraryDiscovery->getLibraryByName($extension, $name);
 
-  $attachments = $build['#attached'] ?? [];
-
-  // Create a dummy response so Drupal can resolve the attached assets.
-  $response = new HtmlResponse();
-  $response->setAttachments($attachments);
-
-  $css_assets = $asset_resolver->getCssAssets($response->getAttachments(), TRUE);
-
-  foreach ($css_assets as $asset) {
-    if (!empty($asset['data'])) {
-      $styles[] = file_url_transform_relative(file_create_url($asset['data']));
-    }
+  if (!$definition) {
+    continue;
   }
 
-  $styles = array_values(array_unique($styles));
+  foreach ($definition['css'] ?? [] as $group) {
+    foreach ($group as $file => $options) {
+      if (str_starts_with($file, 'http://') || str_starts_with($file, 'https://')) {
+        $styles[] = $file;
+      }
+      else {
+        $styles[] = file_url_transform_relative(file_create_url($file));
+      }
+    }
+  }
 }
+
+$styles = array_values(array_unique($styles));
