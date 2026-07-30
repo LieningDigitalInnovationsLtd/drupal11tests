@@ -1,32 +1,17 @@
-$build = $webform->getSubmissionForm();
+use Drupal\Core\Asset\AttachedAssets;
 
-$html = $this->renderer->renderRoot($build);
+$attached_assets = new AttachedAssets();
+$attached_assets->setLibraries([
+  'webform/webform',
+]);
+
+$css_assets = \Drupal::service('asset.resolver')
+  ->getCssAssets($attached_assets, TRUE);
 
 $styles = [];
 
-foreach ($build['#attached']['library'] ?? [] as $library) {
-
-  [$extension, $name] = explode('/', $library, 2);
-
-  $definition = \Drupal::service('library.discovery')
-    ->getLibraryByName($extension, $name);
-
-  if (!$definition) {
-    continue;
-  }
-
-  foreach ($definition['css'] ?? [] as $group) {
-    foreach ($group as $file => $options) {
-
-      if (str_starts_with($file, 'http')) {
-        $styles[] = $file;
-      }
-      else {
-        $styles[] = base_path() . $file;
-      }
-
-    }
-  }
+foreach ($css_assets as $asset) {
+  $styles[] = $asset['data'];
 }
 
-$styles = array_values(array_unique($styles));
+return $styles;
