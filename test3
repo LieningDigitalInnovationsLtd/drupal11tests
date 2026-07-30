@@ -1,17 +1,17 @@
-use Drupal\Core\Asset\AttachedAssets;
+$library = 'webform/webform';
 
-$attached_assets = new AttachedAssets();
-$attached_assets->setLibraries([
-  'webform/webform',
-]);
+[$extension, $name] = explode('/', $library, 2);
 
-$css_assets = \Drupal::service('asset.resolver')
-  ->getCssAssets($attached_assets, TRUE);
+$definition = \Drupal::service('library.discovery')
+  ->getLibraryByName($extension, $name);
 
 $styles = [];
 
-foreach ($css_assets as $asset) {
-  $styles[] = $asset['data'];
+foreach ($definition['css'] ?? [] as $group) {
+  foreach ($group as $file => $options) {
+    $styles[] = '/' . \Drupal::service('extension.path.resolver')
+      ->getPath($extension) . '/' . $file;
+  }
 }
 
 return $styles;
