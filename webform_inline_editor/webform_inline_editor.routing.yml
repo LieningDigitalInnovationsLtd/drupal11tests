@@ -1,0 +1,12 @@
+webform_inline_editor.embed:
+  path: '/webform-inline-editor/{webform}'
+  defaults:
+    _controller: '\Drupal\webform_inline_editor\Controller\EmbedController::build'
+    _title_callback: '\Drupal\webform\Controller\WebformEntityController::title'
+  options:
+    parameters:
+      webform:
+        type: 'entity:webform'
+    _admin_route: TRUE
+  requirements:
+    _entity_access: 'webform.update'

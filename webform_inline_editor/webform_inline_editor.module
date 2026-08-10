@@ -1,0 +1,8 @@
+<?php
+
+/**
+ * @file
+ * Primary module hooks are implemented in Hook\WebformInlineEditorHooks.
+ */
+
+declare(strict_types=1);

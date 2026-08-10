@@ -1,0 +1,7 @@
+services:
+  _defaults:
+    autowire: true
+    autoconfigure: true
+
+  Drupal\webform_inline_editor\Service\ElementFormSimplifier: ~
+  Drupal\webform_inline_editor\Hook\WebformInlineEditorHooks: ~

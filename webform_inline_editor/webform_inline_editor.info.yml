@@ -1,0 +1,10 @@
+name: 'Webform Inline Editor'
+type: module
+description: 'Edit referenced webforms from the node form and simplify element settings.'
+core_version_requirement: ^11
+package: Custom
+dependencies:
+  - drupal:node
+  - webform:webform
+  - webform:webform_node
+  - webform:webform_ui
