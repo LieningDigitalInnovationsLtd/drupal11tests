@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\webform_inline_editor\Hook;
 
-use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\FieldableEntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Hook\Attribute\Hook;
 use Drupal\Core\Render\Element;
@@ -88,7 +88,7 @@ final class WebformInlineEditorHooks {
         '#type' => 'html_tag',
         '#tag' => 'div',
         '#attributes' => ['class' => ['webform-inline-editor__summary']],
-        '#value' => $this->summary($webform),
+        '#value' => $this->formatPlural(count($webform->getElementsDecoded() ?: []), '1 element', '@count elements'),
       ],
       'open' => [
         '#type' => 'html_tag',
@@ -106,7 +106,7 @@ final class WebformInlineEditorHooks {
     ];
     $complete_form['#attached']['library'][] = 'webform_inline_editor/node';
 
-    $this->replaceWidgetWithValues($complete_form, $context['items'], $webform->id());
+    $this->hideWidget($complete_form, $webform->id());
   }
 
   /**
@@ -119,6 +119,36 @@ final class WebformInlineEditorHooks {
     }
     $variables['html_attributes']['class'][] = 'webform-inline-editor-embed';
     $variables['attributes']['class'][] = 'webform-inline-editor-embed';
+  }
+
+  /**
+   * Implements hook_menu_local_actions_alter().
+   */
+  #[Hook('menu_local_actions_alter')]
+  public function menuLocalActionsAlter(array &$local_actions): void {
+    foreach ($local_actions as &$local_action) {
+      if (in_array('entity.webform.edit_form', $local_action['appears_on'] ?? [], TRUE)) {
+        $local_action['appears_on'][] = 'webform_inline_editor.embed';
+      }
+    }
+  }
+
+  /**
+   * Implements hook_preprocess_menu_local_action().
+   *
+   * @see webform_ui_preprocess_menu_local_action()
+   */
+  #[Hook('preprocess_menu_local_action')]
+  public function preprocessMenuLocalAction(array &$variables): void {
+    if (!$this->isEmbedRoute()) {
+      return;
+    }
+
+    $url = $variables['link']['#url'];
+    $secondary = ['entity.webform_ui.element.add_page', 'entity.webform_ui.element.add_layout'];
+    if ($url->isRouted() && in_array($url->getRouteName(), $secondary, TRUE)) {
+      $variables['link']['#options']['attributes']['class'][] = 'button--secondary';
+    }
   }
 
   /**
@@ -135,73 +165,33 @@ final class WebformInlineEditorHooks {
     return \Drupal::routeMatch()->getRouteName() === 'webform_inline_editor.embed';
   }
 
-  private function loadReferencedWebform($entity, string $field_name, FormStateInterface $form_state): ?WebformInterface {
-    $webform_id = NULL;
+  private function loadReferencedWebform(FieldableEntityInterface $entity, string $field_name, FormStateInterface $form_state): ?WebformInterface {
     $value = $form_state->getValue($field_name);
-    if (is_array($value) && !empty($value[0]['target_id'])) {
-      $webform_id = (string) $value[0]['target_id'];
-    }
-    elseif (!empty($value['target_id'])) {
-      $webform_id = (string) $value['target_id'];
-    }
-    elseif ($entity->hasField($field_name) && !$entity->get($field_name)->isEmpty()) {
-      $webform_id = (string) $entity->get($field_name)->target_id;
+    $webform_id = is_array($value) ? ($value[0]['target_id'] ?? $value['target_id'] ?? NULL) : NULL;
+
+    if (!$webform_id && $entity->hasField($field_name) && !$entity->get($field_name)->isEmpty()) {
+      $webform_id = $entity->get($field_name)->target_id;
     }
 
-    if (!$webform_id) {
-      return NULL;
-    }
+    $webform = $webform_id
+      ? $this->entityTypeManager->getStorage('webform')->load($webform_id)
+      : NULL;
 
-    $webform = $this->entityTypeManager->getStorage('webform')->load($webform_id);
     return $webform instanceof WebformInterface ? $webform : NULL;
   }
 
-  private function replaceWidgetWithValues(array &$complete_form, $items, string $webform_id): void {
+  private function hideWidget(array &$complete_form, string $webform_id): void {
     if (!isset($complete_form['widget'])) {
       return;
     }
 
     foreach (Element::children($complete_form['widget']) as $delta) {
-      $item = $items[$delta] ?? NULL;
       $complete_form['widget'][$delta]['target_id'] = [
         '#type' => 'value',
         '#value' => $webform_id,
       ];
-      $complete_form['widget'][$delta]['settings'] = [
-        '#tree' => TRUE,
-        '#access' => FALSE,
-        'status' => [
-          '#type' => 'value',
-          '#value' => $item?->status ?? WebformInterface::STATUS_OPEN,
-        ],
-        'default_data' => [
-          '#type' => 'value',
-          '#value' => $item?->default_data,
-        ],
-        'scheduled' => [
-          'open' => [
-            '#type' => 'value',
-            '#value' => !empty($item?->open)
-              ? DrupalDateTime::createFromTimestamp((int) strtotime((string) $item->open))
-              : NULL,
-          ],
-          'close' => [
-            '#type' => 'value',
-            '#value' => !empty($item?->close)
-              ? DrupalDateTime::createFromTimestamp((int) strtotime((string) $item->close))
-              : NULL,
-          ],
-        ],
-      ];
+      $complete_form['widget'][$delta]['settings']['#access'] = FALSE;
     }
-  }
-
-  private function summary(WebformInterface $webform): string {
-    $elements = $webform->getElementsDecoded();
-    return (string) $this->t('@count elements · @status', [
-      '@count' => is_array($elements) ? count($elements) : 0,
-      '@status' => $webform->isOpen() ? $this->t('Open') : $this->t('Closed'),
-    ]);
   }
 
 }

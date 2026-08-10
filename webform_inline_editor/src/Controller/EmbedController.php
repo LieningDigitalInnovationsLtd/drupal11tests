@@ -4,40 +4,30 @@ declare(strict_types=1);
 
 namespace Drupal\webform_inline_editor\Controller;
 
+use Drupal\Core\DependencyInjection\AutowireTrait;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Form\FormBuilderInterface;
+use Drupal\Core\Entity\EntityFormBuilderInterface;
 use Drupal\webform\Utility\WebformDialogHelper;
 use Drupal\webform\WebformInterface;
-use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Embeddable webform edit form.
  */
 final class EmbedController implements ContainerInjectionInterface {
 
+  use AutowireTrait;
+
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly FormBuilderInterface $formBuilder,
+    private readonly EntityFormBuilderInterface $entityFormBuilder,
   ) {}
 
-  public static function create(ContainerInterface $container): static {
-    return new static(
-      $container->get('entity_type.manager'),
-      $container->get('form_builder'),
-    );
-  }
-
   public function build(WebformInterface $webform): array {
-    $form_object = $this->entityTypeManager->getFormObject('webform', 'edit');
-    $form_object->setEntity($webform);
-
     $build = [
       '#type' => 'container',
       '#attributes' => ['class' => ['webform-inline-editor-embed__content']],
-      'form' => $this->formBuilder->getForm($form_object),
+      'form' => $this->entityFormBuilder->getForm($webform, 'edit'),
       '#attached' => [
-        'library' => ['webform_inline_editor/embed'],
+        'library' => ['webform_inline_editor/styles'],
       ],
       '#cache' => [
         'contexts' => ['user.permissions'],

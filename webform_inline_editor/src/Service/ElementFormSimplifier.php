@@ -21,6 +21,11 @@ final class ElementFormSimplifier {
     $form['#tabs'] = FALSE;
     $form['#attributes']['class'][] = 'webform-inline-editor-element-form';
 
+    if (isset($form['submit_settings']['submit__label'])) {
+      $this->simplifyActions($form);
+      return;
+    }
+
     $this->simplifyElement($form);
     $this->flattenHelpAndDescription($form);
     $this->simplifyValidation($form);
@@ -33,13 +38,15 @@ final class ElementFormSimplifier {
       return;
     }
 
-    $form['#attached']['library'][] = 'webform_inline_editor/element_form';
+    $form['#attached']['library'][] = 'webform_inline_editor/styles';
     $properties = &$form['properties'];
 
-    foreach (['key', 'key_warning', 'table_message'] as $key) {
-      if (isset($properties['element'][$key])) {
-        $properties['element'][$key]['#access'] = FALSE;
-      }
+    if (isset($properties['element'])) {
+      $this->hide($properties['element'], 'key', 'key_warning', 'table_message');
+    }
+
+    if (isset($properties['element']['key'])) {
+      $properties['element']['key']['#element_validate'][] = [self::class, 'generateKey'];
     }
 
     foreach (['element_description', 'validation', 'form'] as $section) {
@@ -63,11 +70,7 @@ final class ElementFormSimplifier {
     unset($properties['conditional_logic']);
     $this->preserveAsValue($properties, 'custom', ['custom', 'properties']);
 
-    foreach (['tabs', 'tab_general', 'tab_conditions', 'tab_advanced', 'tab_access'] as $tab) {
-      if (isset($properties[$tab])) {
-        $properties[$tab]['#access'] = FALSE;
-      }
-    }
+    $this->hide($properties, 'tabs', 'tab_general', 'tab_conditions', 'tab_advanced', 'tab_access');
   }
 
   public function alterWebformElement(array &$element): void {
@@ -76,17 +79,62 @@ final class ElementFormSimplifier {
     }
   }
 
+  public static function generateKey(array &$element, FormStateInterface $form_state): void {
+    if (!empty($element['#value'])) {
+      return;
+    }
+
+    $source = (string) ($form_state->getValue(['properties', 'title'])
+      ?: $form_state->getValue(['properties', 'type'])
+      ?: 'element');
+    $pattern = $element['#machine_name']['replace_pattern'] ?? '[^a-z0-9_]+';
+    $transliterated = \Drupal::transliteration()->transliterate($source, 'en', '_');
+    $key = trim((string) preg_replace('@' . $pattern . '@', '_', mb_strtolower($transliterated)), '_');
+    $key = mb_substr($key ?: 'element', 0, 60);
+
+    $form_object = $form_state->getFormObject();
+    $unique = $key;
+    if (method_exists($form_object, 'exists')) {
+      $suffix = 2;
+      while ($form_object->exists($unique)) {
+        $unique = $key . '_' . $suffix++;
+      }
+    }
+
+    $form_state->setValueForElement($element, $unique);
+  }
+
+  private function keepOnly(array &$element, array $keys): void {
+    foreach (Element::children($element) as $key) {
+      if (!in_array($key, $keys, TRUE) && ($element[$key]['#type'] ?? '') !== 'value') {
+        $element[$key]['#access'] = FALSE;
+      }
+    }
+  }
+
+  private function hide(array &$element, string ...$keys): void {
+    foreach ($keys as $key) {
+      if (isset($element[$key])) {
+        $element[$key]['#access'] = FALSE;
+      }
+    }
+  }
+
+  private function simplifyActions(array &$form): void {
+    $this->keepOnly($form, ['submit_settings']);
+    $this->keepOnly($form['submit_settings'], ['submit__label']);
+
+    $form['submit_settings']['#type'] = 'container';
+    unset($form['submit_settings']['submit__label']['#states']);
+  }
+
   private function simplifyElement(array &$form): void {
     if (!isset($form['element']) || !is_array($form['element'])) {
       return;
     }
 
     $form['element']['#weight'] = -50;
-    foreach (Element::children($form['element']) as $key) {
-      if ($key !== 'title') {
-        $form['element'][$key]['#access'] = FALSE;
-      }
-    }
+    $this->keepOnly($form['element'], ['title']);
   }
 
   private function flattenHelpAndDescription(array &$form): void {
@@ -96,18 +144,18 @@ final class ElementFormSimplifier {
 
     $description = $form['element_description']['description'] ?? NULL;
     $help_details = $form['element_description']['help'] ?? NULL;
-    $help_title = is_array($help_details) ? ($help_details['help_title'] ?? NULL) : NULL;
-    $help = is_array($help_details) ? ($help_details['help'] ?? NULL) : NULL;
-    $help_title_text = is_array($help_details) ? ($help_details['#title'] ?? NULL) : NULL;
+    $help_title = $help_details['help_title'] ?? NULL;
+    $help = $help_details['help'] ?? NULL;
+    $help_title_text = $help_details['#title'] ?? NULL;
 
     if (isset($form['element_description']['more'])) {
       $form['element_description']['more']['#access'] = FALSE;
     }
     unset($form['element_description']['description'], $form['element_description']['help']);
 
-    if (is_array($description)) {
-      $form['description'] = $description;
-      $form['description']['#weight'] = -45;
+    if (is_array($description) && isset($form['element'])) {
+      $form['element']['description'] = $description;
+      $form['element']['description']['#weight'] = -96;
     }
 
     $form['element_description']['#type'] = 'details';
@@ -143,14 +191,10 @@ final class ElementFormSimplifier {
       unset($form['form']['length_container']);
     }
 
-    foreach (Element::children($form['validation']) as $key) {
-      if (!in_array($key, ['required_container', 'length_container'], TRUE)) {
-        $form['validation'][$key]['#access'] = FALSE;
-      }
-    }
+    $this->keepOnly($form['validation'], ['required_container', 'length_container']);
 
-    if (isset($form['validation']['required_container']['required_error'])) {
-      $form['validation']['required_container']['required_error']['#access'] = FALSE;
+    if (isset($form['validation']['required_container'])) {
+      $this->hide($form['validation']['required_container'], 'required_error');
     }
   }
 
@@ -162,35 +206,21 @@ final class ElementFormSimplifier {
     $form['form']['#open'] = FALSE;
     $form['form']['#weight'] = -20;
 
-    if (isset($form['form']['display_container']['help_display'])) {
-      $this->limitShowHideOptions($form['form']['display_container']['help_display'], '', self::HELP_HIDDEN);
-    }
-    if (isset($form['form']['display_container']['description_display'])) {
-      $this->limitShowHideOptions($form['form']['display_container']['description_display'], '', 'invisible');
-    }
-    if (isset($form['form']['display_container']['title_display'])) {
-      $form['form']['display_container']['title_display']['#access'] = FALSE;
-    }
-    if (isset($form['form']['title_display_message'])) {
-      $form['form']['title_display_message']['#access'] = FALSE;
-    }
-    if (isset($form['conditional_logic'])) {
-      $form['conditional_logic']['#access'] = FALSE;
-    }
-
-    foreach (Element::children($form['form']) as $key) {
-      if (!in_array($key, ['display_container', 'placeholder'], TRUE)) {
-        $form['form'][$key]['#access'] = FALSE;
-      }
-    }
-
     if (isset($form['form']['display_container'])) {
-      foreach (Element::children($form['form']['display_container']) as $key) {
-        if (!in_array($key, ['help_display', 'description_display'], TRUE)) {
-          $form['form']['display_container'][$key]['#access'] = FALSE;
-        }
+      $display = &$form['form']['display_container'];
+      if (isset($display['help_display'])) {
+        $this->limitShowHideOptions($display['help_display'], '', self::HELP_HIDDEN);
       }
+      if (isset($display['description_display'])) {
+        $this->limitShowHideOptions($display['description_display'], '', 'invisible');
+      }
+      $this->keepOnly($display, ['help_display', 'description_display']);
+      unset($display);
     }
+
+    $this->hide($form['form'], 'title_display_message');
+    $this->hide($form, 'conditional_logic');
+    $this->keepOnly($form['form'], ['display_container', 'placeholder']);
   }
 
   private function limitShowHideOptions(array &$element, string $show, string $hide): void {
@@ -222,31 +252,18 @@ final class ElementFormSimplifier {
     $properties[$key] = [
       '#type' => 'value',
       '#value' => $element['#default_value'] ?? $element['#value'] ?? NULL,
+      '#parents' => ['properties', $key],
     ];
   }
 
   private function hideAdvanced(array &$form): void {
-    foreach ([
-      'default',
-      'multiple',
-      'wrapper_attributes',
-      'element_attributes',
-      'label_attributes',
-      'summary_attributes',
-      'title_attributes',
-      'display',
-      'admin',
-      'options',
-      'options_other',
-      'options_properties',
-      'access',
-      'flex',
-      'custom',
-    ] as $key) {
-      if (isset($form[$key])) {
-        $form[$key]['#access'] = FALSE;
-      }
-    }
+    $this->hide(
+      $form,
+      'default', 'multiple', 'display', 'admin', 'access', 'flex', 'custom',
+      'options', 'options_other', 'options_properties',
+      'wrapper_attributes', 'element_attributes', 'label_attributes',
+      'summary_attributes', 'title_attributes',
+    );
   }
 
   private function hideEmptySection(array &$element): void {

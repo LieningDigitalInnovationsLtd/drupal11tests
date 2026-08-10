@@ -1,7 +1,9 @@
-node:
+styles:
   css:
     theme:
-      css/webform_inline_editor.node.css: {}
+      css/webform_inline_editor.css: {}
+
+node:
   js:
     js/webform_inline_editor.node.js: {}
   dependencies:
@@ -9,13 +11,4 @@ node:
     - core/drupal
     - core/once
     - core/drupal.dialog
-
-embed:
-  css:
-    theme:
-      css/webform_inline_editor.embed.css: {}
-
-element_form:
-  css:
-    theme:
-      css/webform_inline_editor.element_form.css: {}
+    - webform_inline_editor/styles
