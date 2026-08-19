@@ -8,3 +8,5 @@ dependencies:
   - webform:webform
   - webform:webform_node
   - webform:webform_ui
+  - webform:webform_templates
+  - drupal:taxonomy
