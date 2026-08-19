@@ -4,3 +4,5 @@ services:
     autoconfigure: true
 
   Drupal\webform_inline_editor\Service\ElementFormSimplifier: ~
+  Drupal\webform_inline_editor\Service\TemplateNodeCreator: ~
+  Drupal\webform_inline_editor\Access\TemplateCreateAccess: ~
