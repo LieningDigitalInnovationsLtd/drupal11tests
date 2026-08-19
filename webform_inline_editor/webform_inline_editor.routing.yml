@@ -10,3 +10,17 @@ webform_inline_editor.embed:
     _admin_route: TRUE
   requirements:
     _entity_access: 'webform.update'
+
+
+webform_inline_editor.template_create:
+  path: '/webform-inline-editor/template/{webform}/create'
+  defaults:
+    _controller: '\Drupal\webform_inline_editor\Controller\TemplateCreateController::fromTemplate'
+  options:
+    parameters:
+      webform:
+        type: 'entity:webform'
+    _admin_route: TRUE
+  requirements:
+    _custom_access: '\Drupal\webform_inline_editor\Access\TemplateCreateAccess::access'
+    _csrf_token: 'TRUE'
