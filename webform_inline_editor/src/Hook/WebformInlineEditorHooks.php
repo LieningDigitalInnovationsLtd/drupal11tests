@@ -161,6 +161,42 @@ final class WebformInlineEditorHooks {
     }
   }
 
+    /**
+   * Implements hook_link_alter().
+   */
+  #[Hook('link_alter')]
+  public function linkAlter(array &$variables): void {
+    $url = $variables['url'] ?? NULL;
+    if (!$url instanceof Url || !$url->isRouted() || $url->getRouteName() !== 'entity.webform.duplicate_form') {
+      return;
+    }
+
+    if (!empty($url->getOption('query')['template'])) {
+      return;
+    }
+
+    $webform_id = $url->getRouteParameters()['webform'] ?? NULL;
+    if (!$webform_id) {
+      return;
+    }
+
+    $webform = $this->entityTypeManager->getStorage('webform')->load($webform_id);
+    if (!$webform instanceof WebformInterface || !$webform->isTemplate()) {
+      return;
+    }
+
+    $variables['url'] = Url::fromRoute('webform_inline_editor.template_create', [
+      'webform' => $webform->id(),
+    ]);
+
+    $variables['options']['attributes'] ??= [];
+    $attributes = &$variables['options']['attributes'];
+    unset($attributes['data-dialog-type'], $attributes['data-dialog-options'], $attributes['data-dialog-renderer']);
+    if (isset($attributes['class']) && is_array($attributes['class'])) {
+      $attributes['class'] = array_values(array_diff($attributes['class'], ['webform-ajax-link', 'use-ajax']));
+    }
+  }
+
   private function isEmbedRoute(): bool {
     return \Drupal::routeMatch()->getRouteName() === 'webform_inline_editor.embed';
   }
