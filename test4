@@ -1,0 +1,8 @@
+SELECT DISTINCT n.nid
+FROM node_field_data n
+INNER JOIN node__field_content fc
+  ON fc.entity_id = n.nid
+INNER JOIN paragraphs_item p
+  ON p.id = fc.field_content_target_id
+WHERE n.type = 'homepage'
+  AND p.type = 'xyz';
