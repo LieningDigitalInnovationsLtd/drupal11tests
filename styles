@@ -1,0 +1,36 @@
+.webform-ui-elements-table {
+  tr[data-wie-section] td {
+    background-color: inherit !important;
+  }
+
+  tr[data-wie-section="odd"] {
+    background-color: color-mix(in srgb, var(--gin-color-primary) 8%, var(--gin-bg-layer)) !important;
+  }
+
+  tr[data-wie-section="even"] {
+    background-color: color-mix(in srgb, var(--gin-color-secondary, var(--gin-color-focus)) 8%, var(--gin-bg-layer)) !important;
+  }
+
+  tr.webform-ui-element-type-webform_wizard_page {
+    font-weight: var(--gin-font-weight-semibold, 600);
+    border-top: 3px solid var(--gin-color-primary);
+
+    td {
+      padding-block: var(--gin-spacing-s);
+    }
+
+    &[data-wie-section="odd"] {
+      background-color: color-mix(in srgb, var(--gin-color-primary) 16%, var(--gin-bg-layer)) !important;
+    }
+
+    &[data-wie-section="even"] {
+      border-top-color: var(--gin-color-secondary, var(--gin-color-focus));
+      background-color: color-mix(in srgb, var(--gin-color-secondary, var(--gin-color-focus)) 16%, var(--gin-bg-layer)) !important;
+    }
+  }
+
+  tr.webform-ui-element-type-webform_actions td {
+    border-top: 2px solid var(--gin-border-color-layer);
+    background-color: var(--gin-bg-layer2) !important;
+  }
+}
