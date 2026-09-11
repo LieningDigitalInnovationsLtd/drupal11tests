@@ -1,36 +1,92 @@
 .webform-ui-elements-table {
-  tr[data-wie-section] td {
-    background-color: inherit !important;
+  border-collapse: separate;
+  border-spacing: 0;
+
+  td,
+  th {
+    vertical-align: middle;
   }
 
-  tr[data-wie-section="odd"] {
-    background-color: color-mix(in srgb, var(--gin-color-primary) 8%, var(--gin-bg-layer)) !important;
+  td.tabledrag-cell {
+    width: auto;
+    min-width: 4.5rem;
+    white-space: nowrap;
+
+    .indentation {
+      width: 3.5rem !important;
+      height: 3.5rem !important;
+
+      .tree {
+        width: 3.5rem !important;
+        height: 3.5rem !important;
+      }
+    }
+
+    .tabledrag-handle {
+      min-width: 2.25rem;
+      min-height: 2.25rem;
+
+      &::after {
+        padding: 0 1.25rem;
+      }
+    }
   }
 
-  tr[data-wie-section="even"] {
-    background-color: color-mix(in srgb, var(--gin-color-secondary, var(--gin-color-focus)) 8%, var(--gin-bg-layer)) !important;
+  .tree path {
+    display: none !important;
   }
 
   tr.webform-ui-element-type-webform_wizard_page {
     font-weight: var(--gin-font-weight-semibold, 600);
     border-top: 3px solid var(--gin-color-primary);
+    background-color: color-mix(in srgb, var(--gin-color-primary) 16%, var(--gin-bg-layer)) !important;
 
     td {
       padding-block: var(--gin-spacing-s);
+      background-color: inherit !important;
     }
 
-    &[data-wie-section="odd"] {
-      background-color: color-mix(in srgb, var(--gin-color-primary) 16%, var(--gin-bg-layer)) !important;
+    &:nth-child(even of tr.webform-ui-element-type-webform_wizard_page) {
+      border-top-color: var(--gin-color-green);
+      background-color: color-mix(in srgb, var(--gin-color-green) 16%, var(--gin-bg-layer)) !important;
     }
 
-    &[data-wie-section="even"] {
-      border-top-color: var(--gin-color-secondary, var(--gin-color-focus));
-      background-color: color-mix(in srgb, var(--gin-color-secondary, var(--gin-color-focus)) 16%, var(--gin-bg-layer)) !important;
+    & ~ tr:not(&):not(.webform-ui-element-type-webform_actions) td {
+      background-color: inherit !important;
+    }
+
+    & ~ tr:not(&):not(.webform-ui-element-type-webform_actions):not(& ~ & ~ *) {
+      background-color: color-mix(in srgb, var(--gin-color-primary) 8%, var(--gin-bg-layer)) !important;
+    }
+
+    & ~ & ~ tr:not(&):not(.webform-ui-element-type-webform_actions):not(& ~ & ~ & ~ *) {
+      background-color: color-mix(in srgb, var(--gin-color-green) 8%, var(--gin-bg-layer)) !important;
+    }
+
+    & ~ & ~ & ~ tr:not(&):not(.webform-ui-element-type-webform_actions):not(& ~ & ~ & ~ & ~ *) {
+      background-color: color-mix(in srgb, var(--gin-color-primary) 8%, var(--gin-bg-layer)) !important;
+    }
+
+    & ~ & ~ & ~ & ~ tr:not(&):not(.webform-ui-element-type-webform_actions):not(& ~ & ~ & ~ & ~ & ~ *) {
+      background-color: color-mix(in srgb, var(--gin-color-green) 8%, var(--gin-bg-layer)) !important;
+    }
+
+    & ~ & ~ & ~ & ~ & ~ tr:not(&):not(.webform-ui-element-type-webform_actions):not(& ~ & ~ & ~ & ~ & ~ & ~ *) {
+      background-color: color-mix(in srgb, var(--gin-color-primary) 8%, var(--gin-bg-layer)) !important;
+    }
+
+    & ~ & ~ & ~ & ~ & ~ & ~ tr:not(&):not(.webform-ui-element-type-webform_actions) {
+      background-color: color-mix(in srgb, var(--gin-color-green) 8%, var(--gin-bg-layer)) !important;
     }
   }
 
   tr.webform-ui-element-type-webform_actions td {
     border-top: 2px solid var(--gin-border-color-layer);
     background-color: var(--gin-bg-layer2) !important;
+  }
+
+  .js-indentation {
+    background-color: color-mix(in srgb, var(--gin-color-primary) 12%, transparent);
+    box-shadow: inset -1px 0 0 color-mix(in srgb, var(--gin-border-color) 55%, transparent);
   }
 }
