@@ -1,48 +1,35 @@
 .webform-ui-elements-table {
-  border-collapse: separate;
-  border-spacing: 0;
+  tbody:nth-of-type(odd) > tr:not(.webform-ui-element-type-webform_actions) {
+    background-color: var(--gin-bg-green-light) !important;
+
+    td {
+      background-color: inherit !important;
+    }
+  }
+
+  tbody:nth-of-type(even) > tr:not(.webform-ui-element-type-webform_actions) {
+    background-color: var(--gin-bg-item) !important;
+
+    td {
+      background-color: inherit !important;
+    }
+  }
 
   tr.webform-ui-element-type-webform_wizard_page {
     font-weight: var(--gin-font-weight-semibold, 600);
-    border-top: 3px solid var(--gin-color-primary);
-    background-color: color-mix(in srgb, var(--gin-color-primary) 16%, var(--gin-bg-layer)) !important;
 
     td {
       padding-block: var(--gin-spacing-s);
-      background-color: inherit !important;
     }
+  }
 
-    &:nth-child(even of tr.webform-ui-element-type-webform_wizard_page) {
-      border-top-color: var(--gin-color-green);
-      background-color: color-mix(in srgb, var(--gin-color-green) 16%, var(--gin-bg-layer)) !important;
-    }
+  tbody:nth-of-type(odd) > tr.webform-ui-element-type-webform_wizard_page {
+    border-top: 3px solid var(--gin-color-green);
+    background-color: var(--gin-color-green-lightest) !important;
+  }
 
-    & ~ tr:not(&):not(.webform-ui-element-type-webform_actions) td {
-      background-color: inherit !important;
-    }
-
-    & ~ tr:not(&):not(.webform-ui-element-type-webform_actions):not(& ~ & ~ *) {
-      background-color: color-mix(in srgb, var(--gin-color-primary) 8%, var(--gin-bg-layer)) !important;
-    }
-
-    & ~ & ~ tr:not(&):not(.webform-ui-element-type-webform_actions):not(& ~ & ~ & ~ *) {
-      background-color: color-mix(in srgb, var(--gin-color-green) 8%, var(--gin-bg-layer)) !important;
-    }
-
-    & ~ & ~ & ~ tr:not(&):not(.webform-ui-element-type-webform_actions):not(& ~ & ~ & ~ & ~ *) {
-      background-color: color-mix(in srgb, var(--gin-color-primary) 8%, var(--gin-bg-layer)) !important;
-    }
-
-    & ~ & ~ & ~ & ~ tr:not(&):not(.webform-ui-element-type-webform_actions):not(& ~ & ~ & ~ & ~ & ~ *) {
-      background-color: color-mix(in srgb, var(--gin-color-green) 8%, var(--gin-bg-layer)) !important;
-    }
-
-    & ~ & ~ & ~ & ~ & ~ tr:not(&):not(.webform-ui-element-type-webform_actions):not(& ~ & ~ & ~ & ~ & ~ & ~ *) {
-      background-color: color-mix(in srgb, var(--gin-color-primary) 8%, var(--gin-bg-layer)) !important;
-    }
-
-    & ~ & ~ & ~ & ~ & ~ & ~ tr:not(&):not(.webform-ui-element-type-webform_actions) {
-      background-color: color-mix(in srgb, var(--gin-color-green) 8%, var(--gin-bg-layer)) !important;
-    }
+  tbody:nth-of-type(even) > tr.webform-ui-element-type-webform_wizard_page {
+    border-top: 3px solid var(--gin-color-primary);
+    background-color: var(--gin-color-primary-light) !important;
   }
 }
