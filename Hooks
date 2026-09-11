@@ -1,0 +1,462 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\webform_inline_editor\Hook;
+
+use Drupal\Component\Uuid\UuidInterface;
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Entity\FieldableEntityInterface;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Hook\Attribute\Hook;
+use Drupal\Core\Render\Element;
+use Drupal\Core\StringTranslation\StringTranslationTrait;
+use Drupal\Core\Url;
+use Drupal\node\Form\NodeForm;
+use Drupal\node\NodeInterface;
+use Drupal\webform\WebformInterface;
+use Drupal\webform_inline_editor\Service\ElementFormSimplifier;
+
+/**
+ * Hook implementations for webform_inline_editor.
+ */
+final class WebformInlineEditorHooks {
+
+  use StringTranslationTrait;
+
+  /**
+   * Maximum length of a webform machine name.
+   *
+   * @see \Drupal\webform\WebformEntityAddForm::form()
+   */
+  private const WEBFORM_ID_MAX_LENGTH = 32;
+
+  public function __construct(
+    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ElementFormSimplifier $elementFormSimplifier,
+    private readonly UuidInterface $uuid,
+  ) {}
+
+  /**
+   * Implements hook_webform_element_configuration_form_alter().
+   */
+  #[Hook('webform_element_configuration_form_alter')]
+  public function webformElementConfigurationFormAlter(array &$form, FormStateInterface $form_state): void {
+    $this->elementFormSimplifier->alterConfigurationForm($form, $form_state);
+  }
+
+  /**
+   * Implements hook_form_FORM_ID_alter() for webform_ui_element_form.
+   */
+  #[Hook('form_webform_ui_element_form_alter')]
+  public function formWebformUiElementFormAlter(array &$form, FormStateInterface $form_state): void {
+    $this->elementFormSimplifier->alterElementForm($form, $form_state);
+  }
+
+  /**
+   * Implements hook_webform_element_alter().
+   */
+  #[Hook('webform_element_alter')]
+  public function webformElementAlter(array &$element, FormStateInterface $form_state, array $context): void {
+    $this->elementFormSimplifier->alterWebformElement($element);
+  }
+
+  /**
+   * Implements hook_field_widget_complete_form_alter().
+   */
+  #[Hook('field_widget_complete_form_alter')]
+  public function fieldWidgetCompleteFormAlter(array &$complete_form, FormStateInterface $form_state, array $context): void {
+    $form_object = $form_state->getFormObject();
+    if (!$form_object instanceof NodeForm) {
+      return;
+    }
+
+    $definition = $context['items']->getFieldDefinition();
+    $type = $definition->getType();
+    if ($type !== 'webform' && !($type === 'entity_reference' && $definition->getSetting('target_type') === 'webform')) {
+      return;
+    }
+
+    $field_name = $definition->getName();
+    $webform = $this->loadReferencedWebform($form_object->getEntity(), $field_name, $form_state);
+    if (!$webform || !$webform->access('update')) {
+      return;
+    }
+
+    $complete_form['#attributes']['class'][] = 'webform-inline-editor';
+    $complete_form['webform_inline_editor'] = [
+      '#type' => 'container',
+      '#weight' => -1000,
+      '#attributes' => ['class' => ['webform-inline-editor__card']],
+      'label' => [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => ['class' => ['webform-inline-editor__label']],
+        '#value' => $webform->label(),
+      ],
+      'summary' => [
+        '#type' => 'html_tag',
+        '#tag' => 'div',
+        '#attributes' => ['class' => ['webform-inline-editor__summary']],
+        '#value' => $this->formatPlural(count($webform->getElementsDecoded() ?: []), '1 element', '@count elements'),
+      ],
+      'open' => [
+        '#type' => 'html_tag',
+        '#tag' => 'button',
+        '#value' => $this->t('Edit webform'),
+        '#attributes' => [
+          'type' => 'button',
+          'class' => ['button', 'button--primary', 'button--small', 'js-webform-inline-editor-open'],
+          'data-dialog-title' => (string) $this->t('Edit @label', ['@label' => $webform->label()]),
+          'data-editor-url' => Url::fromRoute('webform_inline_editor.embed', [
+            'webform' => $webform->id(),
+          ])->toString(),
+        ],
+      ],
+    ];
+    $complete_form['#attached']['library'][] = 'webform_inline_editor/node';
+
+    $this->hideWidget($complete_form, $webform->id());
+  }
+
+  /**
+   * Implements hook_form_FORM_ID_alter() for webform edit form.
+   */
+  #[Hook('form_webform_edit_form_alter')]
+  public function formWebformEditFormAlter(array &$form, FormStateInterface $form_state): void {
+    if (!$this->isEmbedRoute()) {
+      return;
+    }
+
+    $form['#attached']['library'][] = 'webform_inline_editor/styles';
+    $form['#after_build'][] = [self::class, 'addEmbedDestinationToFormLinks'];
+    $this->hideElementKeyColumn($form);
+  }
+
+  /**
+   * Implements hook_form_FORM_ID_alter() for webform_duplicate_form.
+   */
+  #[Hook('form_webform_duplicate_form_alter')]
+  public function formWebformDuplicateFormAlter(array &$form, FormStateInterface $form_state): void {
+    if (isset($form['id'])) {
+      $form['id']['#access'] = FALSE;
+      $form['id']['#default_value'] = $this->generateWebformId();
+    }
+
+    foreach (['langcode', 'status'] as $key) {
+      if (isset($form[$key])) {
+        $form[$key]['#access'] = FALSE;
+      }
+    }
+  }
+
+  /**
+   * Implements hook_form_alter().
+   */
+  #[Hook('form_alter')]
+  public function formAlter(array &$form, FormStateInterface $form_state, string $form_id): void {
+    if (!str_starts_with($form_id, 'webform_ui_element')) {
+      return;
+    }
+    $form['#submit'][] = [self::class, 'alterElementFormRedirectToEmbed'];
+  }
+
+  /**
+   * Implements hook_entity_presave().
+   */
+  #[Hook('entity_presave')]
+  public function entityPresave(EntityInterface $entity): void {
+    if (!$entity instanceof WebformInterface || !$entity->isNew() || $entity->isTemplate()) {
+      return;
+    }
+
+    $entity->setSetting('share', TRUE);
+    $entity->setSetting('share_node', TRUE);
+  }
+
+  /**
+   * Implements hook_ENTITY_TYPE_update() for node.
+   *
+   * Keeps the referenced webform's title in sync with the node title.
+   */
+  #[Hook('node_update')]
+  public function nodeUpdate(NodeInterface $node): void {
+    $title = trim((string) $node->label());
+    $original = $node->getOriginal();
+    if ($title === '' || !$original instanceof NodeInterface) {
+      return;
+    }
+
+    // Only follow the node title when it actually changed, so a title edited
+    // directly on the webform is not overwritten on every node save.
+    if (trim((string) $original->label()) === $title) {
+      return;
+    }
+
+    $webform = $this->loadWebformFromEntity($node);
+    if (!$webform || $webform->isTemplate() || $webform->label() === $title) {
+      return;
+    }
+
+    $webform->set('title', $title);
+    $webform->save();
+  }
+
+  /**
+   * Implements hook_preprocess_html().
+   */
+  #[Hook('preprocess_html')]
+  public function preprocessHtml(array &$variables): void {
+    if (!$this->isEmbedRoute()) {
+      return;
+    }
+    $variables['html_attributes']['class'][] = 'webform-inline-editor-embed';
+    $variables['attributes']['class'][] = 'webform-inline-editor-embed';
+  }
+
+  /**
+   * Implements hook_menu_local_actions_alter().
+   */
+  #[Hook('menu_local_actions_alter')]
+  public function menuLocalActionsAlter(array &$local_actions): void {
+    foreach ($local_actions as &$local_action) {
+      if (in_array('entity.webform.edit_form', $local_action['appears_on'] ?? [], TRUE)) {
+        $local_action['appears_on'][] = 'webform_inline_editor.embed';
+      }
+    }
+  }
+
+  /**
+   * Implements hook_preprocess_menu_local_action().
+   *
+   * @see webform_ui_preprocess_menu_local_action()
+   */
+  #[Hook('preprocess_menu_local_action')]
+  public function preprocessMenuLocalAction(array &$variables): void {
+    if (!$this->isEmbedRoute()) {
+      return;
+    }
+
+    $webform = \Drupal::routeMatch()->getParameter('webform');
+    if ($webform instanceof WebformInterface) {
+      $destination = $this->getEmbedUrl($webform)->toString();
+      $url = $variables['link']['#url'];
+      if ($url instanceof Url) {
+        $query = $url->getOption('query') ?? [];
+        $query['destination'] = $destination;
+        $variables['link']['#url'] = $url->setOption('query', $query);
+      }
+    }
+
+    $url = $variables['link']['#url'];
+    $secondary = ['entity.webform_ui.element.add_page', 'entity.webform_ui.element.add_layout'];
+    if ($url instanceof Url && $url->isRouted() && in_array($url->getRouteName(), $secondary, TRUE)) {
+      $variables['link']['#options']['attributes']['class'][] = 'button--secondary';
+    }
+  }
+
+  /**
+   * Implements hook_link_alter().
+   */
+  #[Hook('link_alter')]
+  public function linkAlter(array &$variables): void {
+    $url = $variables['url'] ?? NULL;
+    if (!$url instanceof Url || !$url->isRouted() || $url->getRouteName() !== 'entity.webform.duplicate_form') {
+      return;
+    }
+
+    if (!empty($url->getOption('query')['template'])) {
+      return;
+    }
+
+    $webform_id = $url->getRouteParameters()['webform'] ?? NULL;
+    if (!$webform_id) {
+      return;
+    }
+
+    $webform = $this->entityTypeManager->getStorage('webform')->load($webform_id);
+    if (!$webform instanceof WebformInterface || !$webform->isTemplate()) {
+      return;
+    }
+
+    $variables['url'] = Url::fromRoute('webform_inline_editor.template_create', [
+      'webform' => $webform->id(),
+    ]);
+
+    $variables['options']['attributes'] ??= [];
+    $attributes = &$variables['options']['attributes'];
+    unset($attributes['data-dialog-type'], $attributes['data-dialog-options'], $attributes['data-dialog-renderer']);
+    if (isset($attributes['class']) && is_array($attributes['class'])) {
+      $attributes['class'] = array_values(array_diff($attributes['class'], ['webform-ajax-link', 'use-ajax']));
+    }
+  }
+
+  /**
+   * Implements hook_toolbar_alter().
+   */
+  #[Hook('toolbar_alter')]
+  public function toolbarAlter(array &$items): void {
+    if ($this->isEmbedRoute()) {
+      $items = [];
+    }
+  }
+
+  private function isEmbedRoute(): bool {
+    return \Drupal::routeMatch()->getRouteName() === 'webform_inline_editor.embed';
+  }
+
+  /**
+   * Removes the "Key" column from the element build table.
+   *
+   * The hidden parent/key inputs that tabledrag and the submit handler rely on
+   * live in the "parent" column and are left untouched.
+   *
+   * @see \Drupal\webform_ui\WebformUiEntityElementsForm::getTableHeader()
+   */
+  private function hideElementKeyColumn(array &$form): void {
+    if (!isset($form['webform_ui_elements']) || !is_array($form['webform_ui_elements'])) {
+      return;
+    }
+
+    $table = &$form['webform_ui_elements'];
+    unset($table['#header']['key']);
+
+    foreach (Element::children($table) as $row_key) {
+      unset($table[$row_key]['name']);
+    }
+  }
+
+  /**
+   * Builds a random webform machine name.
+   *
+   * A raw UUID is not a valid webform ID, so it is reduced to the allowed
+   * pattern and length.
+   */
+  private function generateWebformId(): string {
+    $id = 'webform_' . str_replace('-', '', $this->uuid->generate());
+
+    return mb_substr($id, 0, self::WEBFORM_ID_MAX_LENGTH);
+  }
+
+  /**
+   * Loads the webform referenced by an entity's first webform field.
+   */
+  private function loadWebformFromEntity(EntityInterface $entity): ?WebformInterface {
+    if (!$entity instanceof FieldableEntityInterface) {
+      return NULL;
+    }
+
+    foreach ($entity->getFieldDefinitions() as $field_name => $definition) {
+      $type = $definition->getType();
+      if ($type !== 'webform' && !($type === 'entity_reference' && $definition->getSetting('target_type') === 'webform')) {
+        continue;
+      }
+
+      if ($entity->get($field_name)->isEmpty()) {
+        continue;
+      }
+
+      $webform = $this->entityTypeManager->getStorage('webform')
+        ->load($entity->get($field_name)->target_id);
+      if ($webform instanceof WebformInterface) {
+        return $webform;
+      }
+    }
+
+    return NULL;
+  }
+
+  private function getEmbedUrl(WebformInterface $webform): Url {
+    return Url::fromRoute('webform_inline_editor.embed', [
+      'webform' => $webform->id(),
+    ]);
+  }
+
+  /**
+   * Ensures dialog links opened from the embed builder return to it.
+   */
+  public static function addEmbedDestinationToFormLinks(array $form, FormStateInterface $form_state): array {
+    $form_object = $form_state->getFormObject();
+    if (!method_exists($form_object, 'getEntity')) {
+      return $form;
+    }
+
+    $entity = $form_object->getEntity();
+    if (!$entity instanceof WebformInterface) {
+      return $form;
+    }
+
+    self::alterFormLinkDestinations($form, Url::fromRoute('webform_inline_editor.embed', [
+      'webform' => $entity->id(),
+    ])->toString());
+
+    return $form;
+  }
+
+  /**
+   * Redirect element add/edit/delete submissions back to the embed route.
+   */
+  public static function alterElementFormRedirectToEmbed(array &$form, FormStateInterface $form_state): void {
+    $destination = \Drupal::service('redirect.destination')->get();
+    if (!preg_match('#/webform-inline-editor/([^/?]+)#', $destination, $matches)) {
+      return;
+    }
+
+    $redirect = $form_state->getRedirect();
+    if (!$redirect instanceof Url) {
+      return;
+    }
+
+    $form_state->setRedirectUrl(Url::fromRoute('webform_inline_editor.embed', [
+      'webform' => $matches[1],
+    ], [
+      'query' => $redirect->getOption('query') ?? [],
+    ]));
+  }
+
+  /**
+   * @param array<string, mixed> $elements
+   */
+  private static function alterFormLinkDestinations(array &$elements, string $destination): void {
+    if (($elements['#type'] ?? NULL) === 'link' && isset($elements['#url']) && $elements['#url'] instanceof Url) {
+      $query = $elements['#url']->getOption('query') ?? [];
+      $query['destination'] = $destination;
+      $elements['#url'] = $elements['#url']->setOption('query', $query);
+    }
+
+    foreach (Element::children($elements) as $key) {
+      self::alterFormLinkDestinations($elements[$key], $destination);
+    }
+  }
+
+  private function loadReferencedWebform(FieldableEntityInterface $entity, string $field_name, FormStateInterface $form_state): ?WebformInterface {
+    $value = $form_state->getValue($field_name);
+    $webform_id = is_array($value) ? ($value[0]['target_id'] ?? $value['target_id'] ?? NULL) : NULL;
+
+    if (!$webform_id && $entity->hasField($field_name) && !$entity->get($field_name)->isEmpty()) {
+      $webform_id = $entity->get($field_name)->target_id;
+    }
+
+    $webform = $webform_id
+      ? $this->entityTypeManager->getStorage('webform')->load($webform_id)
+      : NULL;
+
+    return $webform instanceof WebformInterface ? $webform : NULL;
+  }
+
+  private function hideWidget(array &$complete_form, string $webform_id): void {
+    if (!isset($complete_form['widget'])) {
+      return;
+    }
+
+    foreach (Element::children($complete_form['widget']) as $delta) {
+      $complete_form['widget'][$delta]['target_id'] = [
+        '#type' => 'value',
+        '#value' => $webform_id,
+      ];
+      $complete_form['widget'][$delta]['settings']['#access'] = FALSE;
+    }
+  }
+
+}
