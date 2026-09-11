@@ -2,40 +2,6 @@
   border-collapse: separate;
   border-spacing: 0;
 
-  td,
-  th {
-    vertical-align: middle;
-  }
-
-  td.tabledrag-cell {
-    width: auto;
-    min-width: 4.5rem;
-    white-space: nowrap;
-
-    .indentation {
-      width: 3.5rem !important;
-      height: 3.5rem !important;
-
-      .tree {
-        width: 3.5rem !important;
-        height: 3.5rem !important;
-      }
-    }
-
-    .tabledrag-handle {
-      min-width: 2.25rem;
-      min-height: 2.25rem;
-
-      &::after {
-        padding: 0 1.25rem;
-      }
-    }
-  }
-
-  .tree path {
-    display: none !important;
-  }
-
   tr.webform-ui-element-type-webform_wizard_page {
     font-weight: var(--gin-font-weight-semibold, 600);
     border-top: 3px solid var(--gin-color-primary);
@@ -78,15 +44,5 @@
     & ~ & ~ & ~ & ~ & ~ & ~ tr:not(&):not(.webform-ui-element-type-webform_actions) {
       background-color: color-mix(in srgb, var(--gin-color-green) 8%, var(--gin-bg-layer)) !important;
     }
-  }
-
-  tr.webform-ui-element-type-webform_actions td {
-    border-top: 2px solid var(--gin-border-color-layer);
-    background-color: var(--gin-bg-layer2) !important;
-  }
-
-  .js-indentation {
-    background-color: color-mix(in srgb, var(--gin-color-primary) 12%, transparent);
-    box-shadow: inset -1px 0 0 color-mix(in srgb, var(--gin-border-color) 55%, transparent);
   }
 }
